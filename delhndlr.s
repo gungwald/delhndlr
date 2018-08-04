@@ -8,7 +8,7 @@
 ********************************
 
                ORG   $801
-               DSK   /HD1/SRC/DELHNDLR
+               DSK   DELHNDLR
 
 CH             EQU   $24        ;HORIZ CHAR POS (40-COL)
 BASL           EQU   $28        ;BASE ADDR FOR CURR VIDEO LINE
@@ -79,7 +79,7 @@ PUTS           MAC
                JSR   STROUT     ;CALL APPLESOFT'S STRING PRINT
                PLA              ;RESTORE Y
                TAY
-               EOM
+               <<<
 
 ********************************
 *                              *
@@ -113,7 +113,7 @@ CONTINUE       TAY              ;MOVE CURSOR POSITION TO Y
                CLI              ;ENABLE INTERRUPTS
                PLA              ;PULL Y VALUE FROM STACK
                TAY              ;RESTORE Y VALUE
-               EOM
+               <<<
 
 ********************************
 *                              *
