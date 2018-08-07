@@ -19,8 +19,8 @@ VOL=$(PGM)
 DSK=$(PGM).dsk
 
 $(DSK): $(PGM)
-	$(AC) -pro140 $(DSK) $(VOL)
-	$(AC) -p $(DSK) $(PGM) SYS < $(PGM)
+	#$(AC) -pro140 $(DSK) $(VOL)
+	$(AC) -p $(DSK) $(PGM) BIN 0x0801 < $(PGM)
 
 $(PGM): $(SRC)
 	$(MERLIN) $(MERLIN_LIB) $(SRC)
@@ -30,5 +30,5 @@ $(PGM): $(SRC)
 	@test -e $(PGM)
 
 clean:
-	$(RM) $(DSK) $(PGM) error_output.txt _FileInformation.txt
+	$(RM) $(PGM) error_output.txt _FileInformation.txt
 
