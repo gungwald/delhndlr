@@ -9,7 +9,8 @@ VOL=$(PGM)
 DSK=$(PGM).dsk
 
 $(DSK): $(PGM)
-	$(AC) -pro140 $(DSK) $(VOL)
+	#$(AC) -pro140 $(DSK) $(VOL)
+	cp delhndlr.dsk $(DSK)
 	$(AC) -p $(DSK) $(PGM) BIN 0x0801 < $(PGM)
 
 $(PGM): $(SRC)
