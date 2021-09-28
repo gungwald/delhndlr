@@ -2,15 +2,15 @@
 # a.k.a. https://github.com/apple2accumulator/merlin32
 #
 
-AC=java -jar AppleCommander-ac-1.4.0.jar
+AC=java -jar AppleCommander-1.3.5-ac.jar
 SRC=delhndlr.s
 PGM=DELHNDLR
 VOL=$(PGM)
 DSK=$(PGM).dsk
 
 $(DSK): $(PGM)
-	#$(AC) -pro140 $(DSK) $(VOL)
-	cp delhndlr.dsk $(DSK)
+	#$(AC) -pro140 $(DSK) $(VOL) ---- Broken in 1.3.5 and others
+	cp prodos.dsk DELHNDLR.dsk
 	$(AC) -p $(DSK) $(PGM) BIN 0x0801 < $(PGM)
 
 $(PGM): $(SRC)
