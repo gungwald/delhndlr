@@ -7,9 +7,9 @@
 *                              *
 ********************************
 
-               ORG   $801
-               TYP   $06        ;BINARY TYPE
-               DSK   DELHNDLR   ;OUTPUT FILE NAME
+               ORG   $300
+               TYP   $06        	;BINARY TYPE
+               DSK   fix.delete.key	;PUT FILE NAME
 
 CH             EQU   $24        ;HORIZ CHAR POS (40-COL)
 BASL           EQU   $28        ;BASE ADDR FOR CURR VIDEO LINE

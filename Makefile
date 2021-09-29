@@ -3,15 +3,15 @@
 #
 
 AC=java -jar AppleCommander-1.3.5-ac.jar
-SRC=delhndlr.s
-PGM=DELHNDLR
+SRC=fix.delete.key.s
+PGM=fix.delete.key
 VOL=$(PGM)
 DSK=$(PGM).dsk
 
 $(DSK): $(PGM)
 	#$(AC) -pro140 $(DSK) $(VOL) ---- Broken in 1.3.5 and others
-	cp prodos.dsk DELHNDLR.dsk
-	$(AC) -p $(DSK) $(PGM) BIN 0x0801 < $(PGM)
+	cp prodos.dsk $(DSK)
+	$(AC) -p $(DSK) $(PGM) BIN 0x0300 < $(PGM)
 
 $(PGM): $(SRC)
 	merlin32 $(SRC)
