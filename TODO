@@ -1,0 +1,6 @@
+1. Change to delkey.erase.bk
+2. Add delkey.reset
+3. If not delete key then forward to previous keyboard routine
+4. Don't change cursor. Keep whatever cursor exists at load time.
+5. Create program to detect if the handler is loaded: delkey.detect?.
+6. Add program to print explanation and instructions.
