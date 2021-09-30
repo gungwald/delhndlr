@@ -9,7 +9,7 @@
 
                ORG   $300
                TYP   $06        	;BINARY TYPE
-               DSK   fix.delete.key	;PUT FILE NAME
+               DSK   delkeyeraseleft	;PUT FILE NAME
 
 CH             EQU   $24        ;HORIZ CHAR POS (40-COL)
 BASL           EQU   $28        ;BASE ADDR FOR CURR VIDEO LINE
@@ -84,7 +84,7 @@ PUTS           MAC
 
 ********************************
 *                              *
-* PUT80 MACRO                  *
+* PUTC80 MACRO                 *
 *                              *
 * IN 80-COL MODE EVEN COLUMNS  *
 * ARE IN AUXILIARY MEMORY      *
@@ -96,7 +96,7 @@ PUTS           MAC
 *                              *
 ********************************
 
-PUT80          MAC
+PUTC80         MAC
                TYA              ;MOVE Y TO A
                PHA              ;SAVE Y VALUE ON STACK
                SEI              ;DISABLE INTERRUPTS
@@ -163,7 +163,7 @@ COL40
                JMP   FINISH
 
 COL80
-               PUT80 #' ';OURCH ;DISPLAY OUR CURSOR, INVERSE SPC
+               PUTC80 #' ';OURCH ;DISPLAY OUR CURSOR, INVERSE SPC
 
 NEXTKEY
                JSR   GETKEY     ;LOAD "KEY" VARIABLE
@@ -178,7 +178,7 @@ NEXTKEY
                STA   KEY
 
 CLRCURS
-               PUT80 #" ";OURCH ;ERASE CURSOR
+               PUTC80 #" ";OURCH ;ERASE CURSOR
 
 FINISH
                PLA              ;RESTORE Y
@@ -222,7 +222,7 @@ D2BDONE
 *                              *
 ********************************
 
-LOADMSG        ASC   "LOADED DELETE HANDLER",0D,00
+LOADMSG        ASC   "LOADED DELETE KEY HANDLER",0D,00
 KEY            DB    0
 ORIGCURS       DB    0
 

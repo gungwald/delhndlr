@@ -4,3 +4,6 @@
 4. Don't change cursor. Keep whatever cursor exists at load time.
 5. Create program to detect if the handler is loaded: delkey.detect?.
 6. Add program to print explanation and instructions.
+7. Change subroutines to macros
+8. Implement a better test for 80-column mode, possibly check cursor; if is delete char then 40-column mode
+9. Add build and run instructions, explanation

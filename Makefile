@@ -3,8 +3,8 @@
 #
 
 AC=java -jar AppleCommander-1.3.5-ac.jar
-SRC=fix.delete.key.s
-PGM=fix.delete.key
+SRC=delkeyeraseleft.s
+PGM=delkeyeraseleft
 VOL=$(PGM)
 DSK=$(PGM).dsk
 
