@@ -9,8 +9,9 @@
 
                ORG   $300
                TYP   $06        	;BINARY TYPE
-               DSK   delkeyeraseleft	;PUT FILE NAME
+               DSK   delkey.clr.left	;OUTPUT FILE NAME
 
+WINWIDTH       EQU   $21
 CH             EQU   $24        ;HORIZ CHAR POS (40-COL)
 BASL           EQU   $28        ;BASE ADDR FOR CURR VIDEO LINE
 KSWL           EQU   $38        ;KEYBOARD SWITCH LOW BYTE
@@ -21,7 +22,9 @@ KBD            EQU   $C000      ;KEYBOARD DATA + STROBE
 KBDSTRB        EQU   $C010      ;CLEAR KEYBOARD STROBE
 CXROMON        EQU   $C007      ;TURN ON INTERNAL ROM
 CXROMOFF       EQU   $C006      ;ENABLE SLOT ROMS
-ALTCHAR        EQU   $C01E      ;>=$80 IF IN 80-COL
+80COLOFF       EQU   $C00C      ;Off: display 40 columns
+80COLON        EQU   $C00D      ;On: display 80 columns
+RD80COL        EQU   $C01F      ;Read 80col switch (1 = on)
 COUT           EQU   $FDED      ;WRITE A CHARACTER
 
 * 80-COL SUBS INSIDE THE INTERNAL ROM
@@ -152,7 +155,7 @@ DELHNDLR
                TYA              ;SAVE Y
                PHA
 
-               BIT   ALTCHAR    ;TEST FOR 80-COL ON
+               BIT   RD80COL    ;TEST FOR 80-COL ON
                BMI   COL80
 
 COL40
