@@ -7,6 +7,18 @@
 *                              *
 ********************************
 
+*********************************************************
+* INPUT SUBROUTINE CALL SEQUENCE:
+* GETLN ($FD6A) - READS A LINE INTO IN ($200) LENGTH IN X
+* '->RDCHAR ($FD35) - HANDLES ESC SEQUENCES FOR 40 COLUMN
+*    '->RDKEY ($FD0C) - READS CHAR INTO ACCUMULATOR
+*       '->KSW ($38) - POINTS TO KEYIN ($FD1B) FOR 40-COL
+*                      OR BASICIN ($C305) FOR 80-COL,
+*                      DELHNDLR IN THIS FILE, OTHER OTHER
+*                      CUSTOM SUBROUTINE. BASICIN HANDLES
+*                      ESC SEQUENCES FOR 80-COLUMN.
+*********************************************************
+
                ORG   $300
                TYP   $06        	;BINARY TYPE
                DSK   delkey.clr.left	;OUTPUT FILE NAME
@@ -19,16 +31,17 @@ KSWH           EQU   $39        ;KEYBOARD SWITCH HIGH BYTE
 OURCH          EQU   $57B       ;HORIZONTAL POSITION (80-COL)
 OURCV          EQU   $5FB       ;VERTICAL POSITION (80-COL)
 KBD            EQU   $C000      ;KEYBOARD DATA + STROBE
-KBDSTRB        EQU   $C010      ;CLEAR KEYBOARD STROBE
-CXROMON        EQU   $C007      ;TURN ON INTERNAL ROM
 CXROMOFF       EQU   $C006      ;ENABLE SLOT ROMS
+CXROMON        EQU   $C007      ;TURN ON INTERNAL ROM
 80COLOFF       EQU   $C00C      ;Off: display 40 columns
 80COLON        EQU   $C00D      ;On: display 80 columns
-RD80COL        EQU   $C01F      ;Read 80col switch (1 = on)
+KBDSTRB        EQU   $C010      ;CLEAR KEYBOARD STROBE
+ALTCHAR        EQU   $C01E      ;Alt char set (1 = on)
 COUT           EQU   $FDED      ;WRITE A CHARACTER
 
 * 80-COL SUBS INSIDE THE INTERNAL ROM
-INVERT         EQU   $CEDD      ;INVERT CHAR ON SCREEN
+GETKEY         EQU   $CB15      ;THIS DOES NOT SEEM TO EXIST
+INVERT         EQU   $CEDD      ;INVERT CHAR ON SCREEN - DOES NOT WORK
 PICK           EQU   $CF01      ;PICK CHAR OFF SCREEN
 
 * INPUT SUBS
@@ -41,6 +54,7 @@ NOESC          EQU   $C9B7      ;HANDLES KEY OTHER THAN ESC
 BINPUT         EQU   $C8F6
 ESCAPING       EQU   $C918
 IN             EQU   $200       ;256-CHAR INPUT BUFFER
+RD80VID        EQU   $C01F
 
 ESC            EQU   $9B        ;ESC WITH HIGH BIT SET
 RTARROW        EQU   $95        ;RIGHT ARROW WITH HIGH BIT SET
@@ -54,12 +68,49 @@ STROUT         EQU   $DB3A      ;PRINT NULL-TERM STRING IN AY
 PRINTXY        EQU   $F940      ;PRINT X & Y AS HEX
 PRBYTE         EQU   $FDDA      ;PRINT BYTE AS 2 HEX DIGITS
 
-STOR80ON       EQU   $C001      ;ENABLE AUXILIARY MEM SWITCHING
+SET80COL       EQU   $C001      ;ENABLE AUXILIARY MEM SWITCHING
 PAGE2OFF       EQU   $C054      ;TURN ON MAIN MEMORY
 PAGE2ON        EQU   $C055      ;TURN ON AUXILIARY MEMORY
 
 DEBUG          EQU   1
 DEBUG2         EQU   0
+
+
+********************************
+* PUSHY MACRO                  *
+********************************
+PUSHY	mac
+	tya
+	pha
+	<<<
+
+********************************
+* POPY MACRO                   *
+********************************
+POPY	mac
+	pla
+	tay
+	<<<
+
+********************************
+* PUSHXY MACRO                 *
+********************************
+PUSHXY	mac
+	txa
+	pha
+	tya
+	pha
+	<<<
+
+********************************
+* POPYX MACRO                  *
+********************************
+POPYX	mac
+	pla
+	tay
+	pla
+	tax
+	<<<
 
 ********************************
 *                              *
@@ -75,15 +126,13 @@ DEBUG2         EQU   0
 *                              *
 ********************************
 
-PUTS           MAC
-               TYA              ;PRESERVE Y
-               PHA
-               LDA   #<]1       ;PUT LOW BYTE INTO A
-               LDY   #>]1       ;PUT HIGH BYTE INTO Y
-               JSR   STROUT     ;CALL APPLESOFT'S STRING PRINT
-               PLA              ;RESTORE Y
-               TAY
-               <<<
+PUTS	MAC
+	PUSHY
+	LDA	#<]1	;PUT LOW BYTE INTO A
+	LDY	#>]1	;PUT HIGH BYTE INTO Y
+	JSR	STROUT	;CALL APPLESOFT'S STRING PRINT
+	POPY
+	<<<
 
 ********************************
 *                              *
@@ -100,8 +149,7 @@ PUTS           MAC
 ********************************
 
 PUTC80         MAC
-               TYA              ;MOVE Y TO A
-               PHA              ;SAVE Y VALUE ON STACK
+               PUSHY
                SEI              ;DISABLE INTERRUPTS
                STA   STOR80ON   ;ENABLE MAIN/AUX MEM SWITCHING
                LDA   ]2         ;LOAD 80-COL HORIZ CURSOR POSITN
@@ -115,8 +163,16 @@ CONTINUE       TAY              ;MOVE CURSOR POSITION TO Y
                STA   (BASL),Y   ;DISPLAY THE CHARACTER
                STA   PAGE2OFF   ;TURN MAIN MEM BACK ON
                CLI              ;ENABLE INTERRUPTS
-               PLA              ;PULL Y VALUE FROM STACK
-               TAY              ;RESTORE Y VALUE
+               POPY
+               <<<
+
+PRINTHEX       MAC
+               PHA
+               PUSHXY
+               lda   ]1
+               JSR   PRBYTE
+               POPYX
+               PLA
                <<<
 
 ********************************
@@ -125,8 +181,7 @@ CONTINUE       TAY              ;MOVE CURSOR POSITION TO Y
 *                              *
 ********************************
 
-MAIN
-               LDA   #<DELHNDLR
+MAIN           LDA   #<DELHNDLR
                STA   KSWL
                LDA   #>DELHNDLR
                STA   KSWH
@@ -148,76 +203,88 @@ MAIN
 *                              *
 ********************************
 
-DELHNDLR
-               STA   ORIGCURS   ;STORE THE ORIGINAL CURSOR CHAR
-               TXA              ;SAVE X
-               PHA
-               TYA              ;SAVE Y
-               PHA
+DELHNDLR       STA   ORIGCURS   ;STORE THE ORIGINAL CURSOR CHAR
+               PUSHXY
 
-               BIT   RD80COL    ;TEST FOR 80-COL ON
+               LDA   ORIGCURS   ;FOLLOWING CODE NEEDS THIS
+               BIT   ALTCHAR    ;TEST FOR 80-COL ON
                BMI   COL80
 
-COL40
-               JSR   GETKEY     ;LOAD "KEY" VARIABLE
+***********************************************************************
+COL40          JSR   GETKEY40   ;LOAD "KEY" VARIABLE
                JSR   DEL2BS     ;CONVERT DELETE TO BACKSPACE
-               LDA   ORIGCURS
-               STA   (BASL),Y   ;REMOVE CURSOR
+               STA   KEY        ;STORE IT BECAUSE A WILL GET WIPED
                JMP   FINISH
+***********************************************************************
 
-COL80
-               PUTC80 #' ';OURCH ;DISPLAY OUR CURSOR, INVERSE SPC
-
-NEXTKEY
-               JSR   GETKEY     ;LOAD "KEY" VARIABLE
-               JSR   DEL2BS     ;CONVERT DELETE TO BACKSPACE
+***********************************************************************
+COL80          
+               STA   (BASL),Y
+               PUTC80 #' ';OURCH
+NEXTKEY        JSR   GETKEY80   ;GET KEYBOARD KEY IN ACCUMULATOR
                CMP   #ESC       ;IS IT ESC?
-               BEQ   NEXTKEY    ;IGNORE ESC
-               CMP   #RTARROW   ;IS IT A RIGHT ARROW
-               BNE   CLRCURS    ;NOT RIGHT ARROW THEN DONE
-               LDY   OURCH      ;GET HORIZONTAL CURSOR POSITION
+               BNE   NOT_ESC    ;IGNORE ESC
+               JSR   ESCAPING   ;HANDLE ESCAPE SEQUENCES
+               JMP   NEXTKEY
+NOT_ESC        CMP   #RTARROW   ;IS IT A RIGHT ARROW
+               BNE   NOTRTARROW ;NOT RIGHT ARROW THEN DONE
+RTARROWHIT     LDY   OURCH      ;GET HORIZONTAL CURSOR POSITION
                JSR   PICK       ;GRAB CHAR FROM SCREEN
                ORA   #$80       ;SET HIGH BIT
-               STA   KEY
+NOTRTARROW     JSR   DEL2BS     ;CONVERT DELETE TO BACKSPACE
+               STA   KEY        ;IT WILL GET WIPED
+               PUTC80 #" ";OURCH
+***********************************************************************
 
-CLRCURS
-               PUTC80 #" ";OURCH ;ERASE CURSOR
-
-FINISH
-               PLA              ;RESTORE Y
-               TAY
-               PLA              ;RESTORE X
-               TAX
+FINISH         POPYX            ;RESTORE X AND Y
                LDA   KEY        ;LOAD RETURN VALUE
                RTS
 
 ********************************
 *                              *
-* GETKEY SUBROUTINE            *
+* GETKEY40 SUBROUTINE          *
+* ORIGINAL CURSOR MUST BE IN A *
+* KEY TYPED IS PUT INTO A      *
 *                              *
 ********************************
 
-GETKEY
-               BIT   KBD        ;TEST FOR KEY PRESSED
-               BPL   GETKEY     ;WAIT FOR KEY PRESSED
+GETKEY40       BIT   KBD        ;TEST FOR KEY PRESSED
+               BPL   GETKEY40   ;WAIT FOR KEY PRESSED
+               STA   (BASL),Y   ;CLEAR CURSOR
                LDA   KBD        ;GET THE KEY THAT WAS PRESSED
                BIT   KBDSTRB    ;CLEAR KEYBOARD STROBE
-               STA   KEY        ;STORE THE KEY THAT WAS READ
+               RTS
+
+********************************
+*                              *
+* GETKEY80 SUBROUTINE          *
+* ORIGINAL CURSOR MUST BE IN A *
+* KEY TYPED IS PUT INTO A      *
+*                              *
+********************************
+
+GETKEY80       BIT   KBD        ;TEST FOR KEY PRESSED
+               BPL   GETKEY80   ;WAIT FOR KEY PRESSED
+               LDA   KBD        ;GET THE KEY THAT WAS PRESSED
+               BIT   KBDSTRB    ;CLEAR KEYBOARD STROBE
                RTS
 
 ********************************
 *                              *
 * DEL2BS SUBROUTINE            *
 *                              *
+* PRECONDITIONS:               *
+* 1. KEY IS IN ACCUMULATOR     *
+*                              *
+* POSTCONDITIONS:              *
+* 1. KEY IS IN ACCUMULATOR     *
+*                              *
 ********************************
 
-DEL2BS
-               CMP   #DELETE    ;IS THE KEY IN A THE DELETE KEY
+DEL2BS         CMP   #DELETE    ;IS THE KEY IN A THE DELETE KEY
                BNE   D2BDONE
                LDA   #BKSPACE
-               STA   KEY
-D2BDONE
-               RTS
+D2BDONE        RTS
 
 ********************************
 *                              *
