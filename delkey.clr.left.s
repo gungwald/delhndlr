@@ -45,8 +45,8 @@ COUT           EQU   $FDED      ;WRITE A CHARACTER
 
 * 80-COL SUBS INSIDE THE INTERNAL ROM
 GETKEY         EQU   $CB15      ;THIS DOES NOT SEEM TO EXIST
-INVERT         EQU   $CEDD      ;INVERT CHAR ON SCREEN - DOES NOT WORK
-PICK           EQU   $CF01      ;PICK CHAR OFF SCREEN
+INVERT         EQU   $CE26      ;TOGGLE NORMAL/INVERSE
+PICK           EQU   $CE44      ;PICK CHAR OFF SCREEN
 
 * INPUT SUBS
 RDKEY          EQU   $FD0C
@@ -139,38 +139,6 @@ PUTS	MAC
 	POPY
 	<<<
 
-********************************
-*                              *
-* PUTC80 MACRO                 *
-*                              *
-* IN 80-COL MODE EVEN COLUMNS  *
-* ARE IN AUXILIARY MEMORY      *
-* WHILE ODD COLUMNS ARE IN     *
-* MAIN MEMORY.                 *
-*                              *
-* ]1 - CHARACTER TO DISPLAY    *
-* ]2 - DESIRED COLUMN          *
-*                              *
-********************************
-
-PUTC80         MAC
-               PUSHY
-               SEI              ;DISABLE INTERRUPTS
-               STA   STOR80ON   ;ENABLE MAIN/AUX MEM SWITCHING
-               LDA   ]2         ;LOAD 80-COL HORIZ CURSOR POSITN
-               LSR   A          ;DIVIDE BY 2 TO CALC PHYS COLUMN
-               BCC   AUXMEM     ;IF EVEN, COLUMN IS IN AUX MEM
-MAINMEM        STA   PAGE2OFF   ;TURN OFF AUX MEM, MAIN MEM ON
-               JMP   CONTINUE   ;AVOID AUX MEM ENABLE
-AUXMEM         STA   PAGE2ON    ;TURN ON AUX MEM, MAIN MEM OFF
-CONTINUE       TAY              ;MOVE CURSOR POSITION TO Y
-               LDA   ]1         ;LOAD THE CHARACTER TO DISPLAY
-               STA   (BASL),Y   ;DISPLAY THE CHARACTER
-               STA   PAGE2OFF   ;TURN MAIN MEM BACK ON
-               CLI              ;ENABLE INTERRUPTS
-               POPY
-               <<<
-
 PRINTHEX       MAC
                PHA
                PUSHXY
@@ -209,10 +177,11 @@ MAIN           LDA   #<DELHNDLR
 ********************************
 
 DELHNDLR       STA   ORIGCURS   ;STORE THE ORIGINAL CURSOR CHAR
+               STY   CURSPOS
                PUSHXY
 
                LDA   ORIGCURS   ;FOLLOWING CODE NEEDS THIS
-               BIT   ALTCHAR    ;TEST FOR 80-COL ON
+               BIT   RDALTCHAR  ;TEST FOR 80-COL ON
                BMI   COL80
 
 ***********************************************************************
@@ -224,21 +193,32 @@ COL40          JSR   GETKEY40   ;LOAD "KEY" VARIABLE
 
 ***********************************************************************
 COL80          
-               STA   (BASL),Y
-               PUTC80 #' ';OURCH
+               LDY   OURCH
+               JSR   PICK
+               STA   CURSOR80
+               JSR   INVERT
+*               JSR   PUTCHAR80
+
 NEXTKEY        JSR   GETKEY80   ;GET KEYBOARD KEY IN ACCUMULATOR
+               JSR   DEL2BS
+               STA   KEY
                CMP   #ESC       ;IS IT ESC?
                BNE   NOT_ESC    ;IGNORE ESC
+               LDA   #" "       ;PREP FOR PUTCHAR80
+               LDY   OURCH      ;PREP FOR PUTCHAR80
+               JSR   PUTCHAR80  ;ERASE CURSOR SO ESCAPEING WORKS PROPERLY
                JSR   ESCAPING   ;HANDLE ESCAPE SEQUENCES
-               JMP   NEXTKEY
+               JMP   FINISH
 NOT_ESC        CMP   #RTARROW   ;IS IT A RIGHT ARROW
                BNE   NOTRTARROW ;NOT RIGHT ARROW THEN DONE
 RTARROWHIT     LDY   OURCH      ;GET HORIZONTAL CURSOR POSITION
                JSR   PICK       ;GRAB CHAR FROM SCREEN
                ORA   #$80       ;SET HIGH BIT
-NOTRTARROW     JSR   DEL2BS     ;CONVERT DELETE TO BACKSPACE
-               STA   KEY        ;IT WILL GET WIPED
-               PUTC80 #" ";OURCH
+               STA   KEY
+NOTRTARROW
+               LDY   OURCH
+               JSR   INVERT
+*               JSR   PUTCHAR80
 ***********************************************************************
 
 FINISH         POPYX            ;RESTORE X AND Y
@@ -293,6 +273,45 @@ D2BDONE        RTS
 
 ********************************
 *                              *
+* PUTC80 SUBROUTINE            *
+*                              *
+* IN 80-COL MODE EVEN COLUMNS  *
+* ARE IN AUXILIARY MEMORY      *
+* WHILE ODD COLUMNS ARE IN     *
+* MAIN MEMORY.                 *
+*                              *
+*  A - CHARACTER TO DISPLAY    *
+*  Y - DESIRED COLUMN          *
+*                              *
+********************************
+
+PUTCHAR80
+               PHA
+               SEI              ;DISABLE INTERRUPTS
+               STA   SET80COL   ;ENABLE MAIN/AUX MEM SWITCHING
+               TYA              ;LOAD 80-COL HORIZ CURSOR POSITN
+               LSR   A          ;DIVIDE BY 2 TO CALC PHYS COLUMN
+               BCC   AUXMEM     ;IF EVEN, COLUMN IS IN AUX MEM
+MAINMEM        STA   PAGE2OFF   ;TURN OFF AUX MEM, MAIN MEM ON
+               JMP   CONTINUE   ;AVOID AUX MEM ENABLE
+AUXMEM         STA   PAGE2ON    ;TURN ON AUX MEM, MAIN MEM OFF
+CONTINUE       TAY              ;MOVE CURSOR POSITION TO Y
+               PLA              ;LOAD THE CHARACTER TO DISPLAY
+               STA   (BASL),Y   ;DISPLAY THE CHARACTER
+               STA   PAGE2OFF   ;TURN MAIN MEM BACK ON
+               CLI              ;ENABLE INTERRUPTS
+               RTS
+
+INVERSECHAR
+            CMP #0
+            BMI NORM2INV
+            ORA #%10000000
+            RTS
+NORM2INV    AND #%01111111
+            RTS
+
+********************************
+*                              *
 * DATA                         *
 *                              *
 ********************************
@@ -300,5 +319,7 @@ D2BDONE        RTS
 LOADMSG        ASC   "LOADED DELETE KEY HANDLER",0D,00
 KEY            DB    0
 ORIGCURS       DB    0
+CURSPOS        DB    0
+CURSOR80       DB    0
 
 
