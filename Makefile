@@ -11,7 +11,7 @@ DSK=$(PGM).dsk
 $(DSK): $(PGM) $(PGM2)
 	#$(AC) -pro140 $(DSK) $(VOL) ---- Broken in 1.3.5 and others
 	cp prodos.dsk $(DSK)
-	$(AC) -p $(DSK) $(PGM) BIN 0x0300 < $(PGM)
+	$(AC) -p $(DSK) $(PGM) BIN 0x0803 < $(PGM)
 
 $(PGM): $(SRC)
 	merlin32 $(SRC)

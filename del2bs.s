@@ -19,7 +19,7 @@
 *                      ESC SEQUENCES FOR 80-COLUMN.
 *********************************************************
 
-               ORG   $300
+               ORG   $803
                TYP   $06        	;BINARY TYPE
                DSK   del2bs         	;OUTPUT FILE NAME
 
@@ -57,9 +57,22 @@ GETLN          EQU   $FD6A
 GETLN1         EQU   $FD6F      ;GETLN WITH NO PROMPT
 NOESC          EQU   $C9B7      ;HANDLES KEY OTHER THAN ESC
 BINPUT         EQU   $C8F6
-ESCAPING       EQU   $C918
+ESCAPING       EQU   $C91B
 IN             EQU   $200       ;256-CHAR INPUT BUFFER
 RD80VID        EQU   $C01F
+
+* USED IN HANDLE_ESC
+ESC_ON         EQU   $CEB1
+ESC_OFF        EQU   $CEC4
+UPSHFT         EQU   $CE14
+CTLCHAR        EQU   $CAD6
+X_NAK          EQU   $CD4D
+A2C_CHAR       EQU   $067B
+
+* DATA USED IN HANDLE_ESC
+ESCTAB         EQU   $C97C
+ESCCHAR        EQU   $C96B
+DOS33_MODE     EQU   $04FB
 
 ESC            EQU   $9B        ;ESC WITH HIGH BIT SET
 RTARROW        EQU   $95        ;RIGHT ARROW WITH HIGH BIT SET
@@ -154,16 +167,16 @@ PRINTHEX       MAC
 *                              *
 ********************************
 
-MAIN           LDA   #<DELHNDLR
+MAIN           LDA   #<DEL2BS
                STA   KSWL
-               LDA   #>DELHNDLR
+               LDA   #>DEL2BS
                STA   KSWH
                PUTS  LOADMSG
                RTS
 
 ********************************
 *                              *
-* KEYBOARD INPUT ROUTINE       *
+* KEYBOARD INPUT SUBROUTINE    *
 *                              *
 * PRECONDITIONS:               *
 * 1. CURSOR AT CH & BASL - only works with 40-col
@@ -176,18 +189,21 @@ MAIN           LDA   #<DELHNDLR
 *                              *
 ********************************
 
-DELHNDLR       STA   ORIGCURS   ;STORE THE ORIGINAL CURSOR CHAR
+DEL2BS         STA   ORIGCURS   ;STORE THE ORIGINAL CURSOR CHAR
                STY   CURSPOS
-               PUSHXY
+               PUSHY
 
                LDA   ORIGCURS   ;FOLLOWING CODE NEEDS THIS
                BIT   RDALTCHAR  ;TEST FOR 80-COL ON
                BMI   COL80
 
 ***********************************************************************
-COL40          JSR   GETKEY40   ;LOAD "KEY" VARIABLE
-               JSR   DEL2BS     ;CONVERT DELETE TO BACKSPACE
+COL40          JSR   GETKEY     ;LOAD "KEY" VARIABLE
+               JSR   CONV_DEL2BS
                STA   KEY        ;STORE IT BECAUSE A WILL GET WIPED
+               LDA   ORIGCURS
+               LDY   CURSPOS
+               STA   (BASL),Y   ;REPLACE CURSOR
                JMP   FINISH
 ***********************************************************************
 
@@ -199,15 +215,13 @@ COL80
                JSR   INVERT     ;INVERT CHAR AT CURSOR POSITION
 
 NEXTKEY        JSR   GETKEY     ;GET KEYBOARD KEY IN ACCUMULATOR
-               JSR   DEL2BS
+               JSR   CONV_DEL2BS
                STA   KEY        ;REMEMBER WHAT KEY WAS TYPED
                CMP   #ESC       ;IS IT ESC?
-               BNE   NOT_ESC    ;IGNORE ESC
-               LDA   #" "       ;PREP FOR PUTCHAR80
-               LDY   OURCH      ;PREP FOR PUTCHAR80
-               JSR   PUTCHAR80  ;ERASE CURSOR SO ESCAPEING WORKS PROPERLY
-               JSR   ESCAPING   ;not a subroutine!!!!!!!!!
-               JMP   FINISH
+               BNE   NOT_ESC    ;KEY IS NOT ESC
+               JSR   INVERT     ;PREP FOR ESCAPING CURSOR
+               JSR   HANDLE_ESC
+               JMP   COL80
 NOT_ESC        CMP   #RTARROW   ;IS IT A RIGHT ARROW
                BNE   NOTRTARROW ;NOT RIGHT ARROW THEN DONE
 RTARROWHIT     LDY   OURCH      ;GET HORIZONTAL CURSOR POSITION
@@ -219,23 +233,8 @@ NOTRTARROW
                JSR   INVERT     ;CURSOR CHAR MUST BE IN A
 ***********************************************************************
 
-FINISH         POPYX            ;RESTORE X AND Y
+FINISH         POPY             ;RESTORE X AND Y
                LDA   KEY        ;LOAD RETURN VALUE
-               RTS
-
-********************************
-*                              *
-* GETKEY40 SUBROUTINE          *
-* ORIGINAL CURSOR MUST BE IN A *
-* KEY TYPED IS PUT INTO A      *
-*                              *
-********************************
-
-GETKEY40       BIT   KBD        ;TEST FOR KEY PRESSED
-               BPL   GETKEY40   ;WAIT FOR KEY PRESSED
-               STA   (BASL),Y   ;CLEAR CURSOR
-               LDA   KBD        ;GET THE KEY THAT WAS PRESSED
-               BIT   KBDSTRB    ;CLEAR KEYBOARD STROBE
                RTS
 
 ********************************
@@ -250,7 +249,7 @@ GETKEY40       BIT   KBD        ;TEST FOR KEY PRESSED
 *                              *
 ********************************
 
-DEL2BS         CMP   #DELETE    ;IS THE KEY IN A THE DELETE KEY
+CONV_DEL2BS    CMP   #DELETE    ;IS THE KEY IN A THE DELETE KEY
                BNE   D2BDONE
                LDA   #BKSPACE
 D2BDONE        RTS
@@ -269,22 +268,59 @@ D2BDONE        RTS
 *                              *
 ********************************
 
-PUTCHAR80
-               PHA
-               SEI              ;DISABLE INTERRUPTS
-               STA   SET80COL   ;ENABLE MAIN/AUX MEM SWITCHING
-               TYA              ;LOAD 80-COL HORIZ CURSOR POSITN
-               LSR   A          ;DIVIDE BY 2 TO CALC PHYS COLUMN
-               BCC   AUXMEM     ;IF EVEN, COLUMN IS IN AUX MEM
-MAINMEM        STA   PAGE2OFF   ;TURN OFF AUX MEM, MAIN MEM ON
-               JMP   CONTINUE   ;AVOID AUX MEM ENABLE
-AUXMEM         STA   PAGE2ON    ;TURN ON AUX MEM, MAIN MEM OFF
-CONTINUE       TAY              ;MOVE CURSOR POSITION TO Y
-               PLA              ;LOAD THE CHARACTER TO DISPLAY
-               STA   (BASL),Y   ;DISPLAY THE CHARACTER
-               STA   PAGE2OFF   ;TURN MAIN MEM BACK ON
-               CLI              ;ENABLE INTERRUPTS
-               RTS
+*PUTCHAR80
+*               PHA
+*               SEI              ;DISABLE INTERRUPTS
+*               STA   SET80COL   ;ENABLE MAIN/AUX MEM SWITCHING
+*               TYA              ;LOAD 80-COL HORIZ CURSOR POSITN
+*               LSR   A          ;DIVIDE BY 2 TO CALC PHYS COLUMN
+*               BCC   AUXMEM     ;IF EVEN, COLUMN IS IN AUX MEM
+*MAINMEM        STA   PAGE2OFF   ;TURN OFF AUX MEM, MAIN MEM ON
+*               JMP   CONTINUE   ;AVOID AUX MEM ENABLE
+*AUXMEM         STA   PAGE2ON    ;TURN ON AUX MEM, MAIN MEM OFF
+*CONTINUE       TAY              ;MOVE CURSOR POSITION TO Y
+*               PLA              ;LOAD THE CHARACTER TO DISPLAY
+*               STA   (BASL),Y   ;DISPLAY THE CHARACTER
+*               STA   PAGE2OFF   ;TURN MAIN MEM BACK ON
+*               CLI              ;ENABLE INTERRUPTS
+*               RTS
+
+HANDLE_ESC
+               JSR   ESC_ON
+               JSR   GETKEY
+               JSR   ESC_OFF
+               JSR   UPSHFT
+               AND   #$7F
+               LDY   #$10
+ESC2           CMP   ESCTAB,Y
+               BEQ   ESC3
+               DEY
+               BPL   ESC2
+               BMI   ESCSPEC
+ESC3           LDA   ESCCHAR,Y
+               AND   #$7F
+               JSR   CTLCHAR
+               LDA   ESCCHAR,Y
+               BMI   HANDLE_ESC
+               RTS               ;WAS JMP B.INPUT
+ESCSPEC        TAY
+               LDA   DOS33_MODE
+               CPY   #$11
+               BNE   ESCSP1
+               JSR   X_NAK
+               LDA   #$98
+               STA   A2C_CHAR
+               RTS               ;WAS JMP BIORET
+ESCSP1         CPY   #$05
+               BNE   ESCSP4
+               AND   #$DF
+ESCSP2         STA   DOS33_MODE
+ESCSP3         RTS               ;WAS JMP B.INPUT
+ESCSP4         CPY   #$04
+               BNE   ESCSP3
+               ORA   #$20
+               BNE   ESCSP2
+               RTS               ;DID NOT EXIST IN ORIGINAL
 
 ********************************
 *                              *
@@ -292,10 +328,8 @@ CONTINUE       TAY              ;MOVE CURSOR POSITION TO Y
 *                              *
 ********************************
 
-LOADMSG        ASC   "LOADED DELETE KEY TO BACKSPACE CONVERTER",0D,00
+LOADMSG        ASC   "LOADED DELETE TO BACKSPACE CONVERTER",0D,"AT ADDRESS $803",0D,00
 KEY            DB    0
 ORIGCURS       DB    0
 CURSPOS        DB    0
 CURSOR80       DB    0
-
-
