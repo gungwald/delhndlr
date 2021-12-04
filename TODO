@@ -1,9 +1,6 @@
-1. Change to delkey.erase.bk
-2. Add delkey.reset
-3. If not delete key then forward to previous keyboard routine
-4. Don't change cursor. Keep whatever cursor exists at load time.
-5. Create program to detect if the handler is loaded: delkey.detect?.
-6. Add program to print explanation and instructions.
-7. Change subroutines to macros
-8. Implement a better test for 80-column mode, possibly check cursor; if is delete char then 40-column mode
-9. Add build and run instructions, explanation
+1. Split into 40-col and 80-col programs
+2. Have a loader that figures out if it's in 40 or 80 col mode and then
+   load the right code.
+3. Make a release.
+4. Go back to $300 load address once split into 2 programs. Each need to be
+   < 200 bytes to fit at that location.
