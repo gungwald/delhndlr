@@ -1,0 +1,76 @@
+********************************
+*                              *
+* APPLE II SYMBOLS FOR MEMORY  *
+* LOCATIONS                    *
+*                              *
+* AUTHOR:  BILL CHATFIELD      *
+* LICENSE: GPL                 *
+*                              *
+********************************
+
+WINWIDTH       EQU   $21
+CH             EQU   $24        ;HORIZ CHAR POS (40-COL)
+BASL           EQU   $28        ;BASE ADDR FOR CURR VIDEO LINE
+KSWL           EQU   $38        ;KEYBOARD SWITCH LOW BYTE
+KSWH           EQU   $39        ;KEYBOARD SWITCH HIGH BYTE
+OURCH          EQU   $57B       ;HORIZONTAL POSITION (80-COL)
+OURCV          EQU   $5FB       ;VERTICAL POSITION (80-COL)
+KBD            EQU   $C000      ;KEYBOARD DATA + STROBE
+CXROMOFF       EQU   $C006      ;ENABLE EXPANSION SLOTS AT $C100-$C7FF
+CXROMON        EQU   $C007      ;ENABLE INTERNAL ROM AT $C100-$C7FF
+RDCXROM        EQU   $C015      ;READ CXROM SWITCH (1 = SLOTS, 0 = ROM)
+80COLOFF       EQU   $C00C      ;Off: display 40 columns
+80COLON        EQU   $C00D      ;On: display 80 columns
+ALTCHAROFF     EQU   $C00E      ;USE PRIMARY CHARACTER SET
+ALTCHARON      EQU   $C00F      ;USE ALTERNATE CHARACTER SET
+KBDSTRB        EQU   $C010      ;CLEAR KEYBOARD STROBE
+RDALTCHAR      EQU   $C01E      ;READ STATE OF Alt char set (1 = on)
+RD80COL        EQU   $C01F      ;READ 80COL SWITCH
+COUT           EQU   $FDED      ;WRITE A CHARACTER
+
+* 80-COL SUBS
+GETKEY         EQU   $C83B
+INVERT         EQU   $CE26      ;TOGGLE NORMAL/INVERSE
+PICK           EQU   $CE44      ;PICK CHAR OFF SCREEN
+
+* INPUT SUBS
+RDKEY          EQU   $FD0C
+RDCHAR         EQU   $FD35
+KEYIN          EQU   $FD1B
+BASICIN        EQU   $C305
+GETLN          EQU   $FD6A
+GETLN1         EQU   $FD6F      ;GETLN WITH NO PROMPT
+NOESC          EQU   $C9B7      ;HANDLES KEY OTHER THAN ESC
+BINPUT         EQU   $C8F6
+ESCAPING       EQU   $C91B
+IN             EQU   $200       ;256-CHAR INPUT BUFFER
+RD80VID        EQU   $C01F
+
+* USED IN HANDLE_ESC
+ESC_ON         EQU   $CEB1
+ESC_OFF        EQU   $CEC4
+UPSHFT         EQU   $CE14
+CTLCHAR        EQU   $CAD6
+X_NAK          EQU   $CD4D
+A2C_CHAR       EQU   $067B
+
+* DATA USED IN HANDLE_ESC
+ESCTAB         EQU   $C97C
+ESCCHAR        EQU   $C96B
+DOS33_MODE     EQU   $04FB
+
+ESC            EQU   $9B        ;ESC WITH HIGH BIT SET
+RTARROW        EQU   $95        ;RIGHT ARROW WITH HIGH BIT SET
+DELETE         EQU   $FF        ;DELETE WITH HIGH BIT SET
+BKSPACE        EQU   $88        ;BACKSPACE WITH HIGH BIT SET
+
+HEXDEC         EQU   $ED24      ;HEX-TO-DECIMAL CONVERSION
+CROUT          EQU   $FD8E      ;PRINT A CARRIAGE RETURN
+STROUT         EQU   $DB3A      ;PRINT NULL-TERM STRING IN AY
+* MONITOR SUBS
+PRINTXY        EQU   $F940      ;PRINT X & Y AS HEX
+PRBYTE         EQU   $FDDA      ;PRINT BYTE AS 2 HEX DIGITS
+
+SET80COL       EQU   $C001      ;ENABLE AUXILIARY MEM SWITCHING
+PAGE2OFF       EQU   $C054      ;TURN ON MAIN MEMORY
+PAGE2ON        EQU   $C055      ;TURN ON AUXILIARY MEMORY
